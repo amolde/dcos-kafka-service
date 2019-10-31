@@ -176,13 +176,14 @@ pods:
           (umask u=rw,g=,o= && cp $MESOS_SANDBOX/jmx/key_file $MESOS_SANDBOX/jmx_properties/key_file)
       {{/TASKCFG_ALL_SECURE_JMX_ENABLED}}
 
-          # setup-helper determines the correct listeners and security.inter.broker.protocol.
+          # setup-helper determines the correct listeners and inter.broker.listener.name.
           # it relies on the task IP being stored in MESOS_CONTAINER_IP
           export MESOS_CONTAINER_IP=$( ./bootstrap --get-task-ip )
           ./setup-helper
           export SETUP_HELPER_ADVERTISED_LISTENERS=`cat advertised.listeners`
           export SETUP_HELPER_LISTENERS=`cat listeners`
-          export SETUP_HELPER_SECURITY_INTER_BROKER_PROTOCOL=`cat security.inter.broker.protocol`
+          export SETUP_HELPER_LISTENER_PROTOCOL_MAP=`cat listener.security.protocol.map`
+          export SETUP_HELPER_SECURITY_INTER_BROKER_PROTOCOL=`cat inter.broker.listener.name`
           export SETUP_HELPER_SUPER_USERS=`cat super.users`
 
           ./bootstrap -resolve=false

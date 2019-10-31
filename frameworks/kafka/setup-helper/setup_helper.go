@@ -27,11 +27,16 @@ const (
 	superUsersEnvvar      = "SECURITY_AUTHORIZATION_SUPER_USERS"
 	brokerCountEnvvar     = "BROKER_COUNT"
 	advertiseHostIPEnvvar = "KAFKA_ADVERTISE_HOST"
+	externalAdvertisedListenerEnvvar = "EXTERNAL_ADVERTISED_LISTENER"
 
 	listenersProperty           = "listeners"
 	advertisedListenersProperty = "advertised.listeners"
-	interBrokerProtocolProperty = "security.inter.broker.protocol"
+	listenerProtocolMapProperty = "listener.security.protocol.map"
+	interBrokerProtocolProperty = "inter.broker.listener.name"
 	superUsersProperty          = "super.users"
+
+	externalProtocol            = "EXTERNAL"
+	secondExternalProtocol      = "EXTERNAL2"
 
 	// Based on the RFC5280 the CN cannot be longer than 64 characters
 	// ub-common-name INTEGER ::= 64
@@ -97,12 +102,12 @@ func calculateSettings() error {
 	}
 	log.Printf("Set listeners")
 
-	log.Print("Setting security.inter.broker.protocol...")
+	log.Print("Setting inter.broker.listener.name...")
 	err = setInterBrokerProtocol()
 	if err != nil {
 		return err
 	}
-	log.Print("Set security.inter.broker.protocol")
+	log.Print("Set inter.broker.listener.name")
 
 	log.Print("Setting super.users")
 	err = setSuperUsers()
@@ -124,6 +129,7 @@ func parseToggles() (kerberos bool, tls bool, plaintext bool, authz bool, sslAut
 func setListeners() error {
 	var listeners []string
 	var advertisedListeners []string
+	listenerProtocolMap := make(map[string]string)
 
 	kerberosEnabled, tlsEncryptionEnabled, allowPlainText, _, _ := parseToggles()
 
@@ -131,46 +137,90 @@ func setListeners() error {
 
 		if tlsEncryptionEnabled { // Transport encryption on
 			listeners = append(listeners,
-				getListener("SASL_SSL", brokerPortTLS))
+				getListener("SASL_SSL", brokerPortTLS, true))
+			listeners = append(listeners,
+				getListener(externalProtocol, getExternalListenerPort(0), false))
 			advertisedListeners = append(advertisedListeners,
-				getAdvertisedListener("SASL_SSL", brokerPortTLS))
+				getExternalListener(externalProtocol, 0, "SASL_SSL", brokerPortTLS, false))
+			advertisedListeners = append(advertisedListeners,
+				getListener("SASL_SSL", brokerPortTLS, true))
+			listenerProtocolMap["SASL_SSL"] = "SASL_SSL"
+			listenerProtocolMap[externalProtocol] = listenerProtocolMap["SASL_SSL"]
 
 			if allowPlainText { // Allow plaintext as well
 				listeners = append(listeners,
-					getListener("SASL_PLAINTEXT", brokerPort))
+					getListener("SASL_PLAINTEXT", brokerPort, true))
+				listeners = append(listeners,
+					getListener(secondExternalProtocol, getExternalListenerPort(1), false))
 				advertisedListeners = append(advertisedListeners,
-					getAdvertisedListener("SASL_PLAINTEXT", brokerPort))
+					getExternalListener(secondExternalProtocol, 1, "SASL_PLAINTEXT", brokerPort, false))
+				advertisedListeners = append(advertisedListeners,
+					getListener("SASL_PLAINTEXT", brokerPort, true))
+				listenerProtocolMap["SASL_PLAINTEXT"] = "SASL_PLAINTEXT"
+				listenerProtocolMap[secondExternalProtocol] = listenerProtocolMap["SASL_PLAINTEXT"]
 			}
 		} else { // Plaintext only
 			listeners = append(listeners,
-				getListener("SASL_PLAINTEXT", brokerPort))
+				getListener("SASL_PLAINTEXT", brokerPort, true))
+			listeners = append(listeners,
+				getListener(externalProtocol, getExternalListenerPort(0), false))
 			advertisedListeners = append(advertisedListeners,
-				getAdvertisedListener("SASL_PLAINTEXT", brokerPort))
+				getExternalListener(externalProtocol, 0, "SASL_PLAINTEXT", brokerPort, false))
+			advertisedListeners = append(advertisedListeners,
+				getListener("SASL_PLAINTEXT", brokerPort, true))
+			listenerProtocolMap["SASL_PLAINTEXT"] = "SASL_PLAINTEXT"
+			listenerProtocolMap[externalProtocol] = listenerProtocolMap["SASL_PLAINTEXT"]
 		}
 
 	} else if tlsEncryptionEnabled { // No kerberos, but Transport encryption is on
 		listeners = append(listeners,
-			getListener("SSL", brokerPortTLS))
+			getListener("SSL", brokerPortTLS, true))
+		listeners = append(listeners,
+			getListener(externalProtocol, getExternalListenerPort(0), false))
 		advertisedListeners = append(advertisedListeners,
-			getAdvertisedListener("SSL", brokerPortTLS))
+			getExternalListener(externalProtocol, 0, "SSL", brokerPortTLS, false))
+		advertisedListeners = append(advertisedListeners,
+			getListener("SSL", brokerPortTLS, true))
+		listenerProtocolMap["SSL"] = "SSL"
+		listenerProtocolMap[externalProtocol] = listenerProtocolMap["SSL"]
 
 		if allowPlainText { // Plaintext allowed
 			listeners = append(listeners,
-				getListener("PLAINTEXT", brokerPort))
+				getListener("PLAINTEXT", brokerPort, true))
+			listeners = append(listeners,
+				getListener(secondExternalProtocol, getExternalListenerPort(1), false))
 			advertisedListeners = append(advertisedListeners,
-				getAdvertisedListener("PLAINTEXT", brokerPort))
+				getExternalListener(secondExternalProtocol, 1, "PLAINTEXT", brokerPort, false))
+			advertisedListeners = append(advertisedListeners,
+				getListener("PLAINTEXT", brokerPort, true))
+			listenerProtocolMap["PLAINTEXT"] = "PLAINTEXT"
+			listenerProtocolMap[secondExternalProtocol] = listenerProtocolMap["PLAINTEXT"]
 		}
 	} else { // No TLS, no Kerberos, Plaintext only
 		listeners = append(listeners,
-			getListener("PLAINTEXT", brokerPort))
+			getListener("PLAINTEXT", brokerPort, true))
+		listeners = append(listeners,
+			getListener(externalProtocol, getExternalListenerPort(0), false))
 		// NOTE: To be consistent with the legacy behavior of the 2.0.X Kafka series,
 		// we advertise the IP address rather than the host name.
 		advertisedListeners = append(advertisedListeners,
-			getListener("PLAINTEXT", brokerPort))
+			getExternalListener(externalProtocol, 0, "PLAINTEXT", brokerPort, true))
+		advertisedListeners = append(advertisedListeners,
+			getListener("PLAINTEXT", brokerPort, true))
+		listenerProtocolMap["PLAINTEXT"] = "PLAINTEXT"
+		listenerProtocolMap[externalProtocol] = listenerProtocolMap["PLAINTEXT"]		
 	}
-
+	
 	err := writeToWorkingDirectory(listenersProperty,
 		"listeners="+strings.Join(listeners, ","))
+
+	var listenerProtocolMapList []string
+	for key,value := range listenerProtocolMap{
+		listenerProtocolMapList = append(listenerProtocolMapList, fmt.Sprintf("%s:%s", key, value))
+	}
+	
+	err = writeToWorkingDirectory(listenerProtocolMapProperty,
+		"listener.security.protocol.map="+strings.Join(listenerProtocolMapList, ","))
 
 	// NOTE: To be consistent with the legacy behavior of the 2.0.X Kafka series,
 	// when there is no security enabled, we must honor the kafka.kafka_advertise_host_ip
@@ -185,12 +235,37 @@ func setListeners() error {
 	return err
 }
 
-func getListener(protocol string, portEnvvar string) string {
+func getListener(protocol string, portEnvvar string, isEnvVar bool) string {
+	port := portEnvvar
+	if (isEnvVar) {
+		port = getStringEnvvar(portEnvvar)
+	}
 	return fmt.Sprintf("%s://%s:%s",
 		protocol,
 		getStringEnvvar(ipEnvvar),
-		getStringEnvvar(portEnvvar),
+		port,
 	)
+}
+
+func getExternalListenerPort(offset int) string {
+	return strconv.Itoa(9092 + offset)
+}
+
+func getExternalListener(externalProtocol string, externalPortOffset int, protocol string, portEnvvar string, useIp bool) string {
+	if (getStringEnvvar(externalAdvertisedListenerEnvvar) != "") {	
+		portNumberIncrement := 0
+		if(getStringEnvvar("POD_INSTANCE_INDEX") != "") {
+			portNumberIncrement = getIntEnvvar("POD_INSTANCE_INDEX")
+		}
+		return fmt.Sprintf("%s://%s:%s",
+			externalProtocol,
+			getStringEnvvar(externalAdvertisedListenerEnvvar),
+			getExternalListenerPort(externalPortOffset + portNumberIncrement))
+	}
+	if (useIp) {
+		return getListener(protocol, portEnvvar, true)
+	}
+	return getAdvertisedListener(protocol, portEnvvar)
 }
 
 func getAdvertisedListener(protocol string, portEnvvar string) string {

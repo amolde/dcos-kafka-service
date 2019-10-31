@@ -155,6 +155,7 @@
 
     {{#kafka.kafka_advertise_host_ip}}
     "TASKCFG_ALL_KAFKA_ADVERTISE_HOST" : "true",
+    "TASKCFG_ALL_EXTERNAL_ADVERTISED_LISTENER": "{{kafka.external_loadbalancer_dns}}",
     {{/kafka.kafka_advertise_host_ip}}
 
     "TASKCFG_ALL_KAFKA_RESERVED_BROKER_MAX_ID": "{{kafka.reserved_broker_max_id}}",

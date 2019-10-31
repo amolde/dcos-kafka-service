@@ -42,67 +42,81 @@ func TestCalculateSettingsListenersError(t *testing.T) {
 
 var listenerTests = []struct {
 	advertiseHostIPEnvvarValue  string
+	extAdvListenerEnvvarValue   string
 	kerberosEnvvarValue         string
 	tlsEncryptionEnvvarValue    string
 	tlsAllowPlainEnvvarValue    string
 	expectedListeners           string
 	expectedAdvertisedListeners string
+	expectedListenerProtocolMap string
 }{
 	{ // Everything false
 		advertiseHostIPEnvvarValue:  "false",
+		extAdvListenerEnvvarValue:   "my.ext.load.balancer",
 		kerberosEnvvarValue:         "false",
 		tlsEncryptionEnvvarValue:    "false",
 		tlsAllowPlainEnvvarValue:    "false",
-		expectedListeners:           "listeners=PLAINTEXT://127.0.0.1:1000",
+		expectedListeners:           "listeners=PLAINTEXT://127.0.0.1:1000,EXTERNAL://127.0.0.1:9092",
 		expectedAdvertisedListeners: "",
+		expectedListenerProtocolMap: "listener.security.protocol.map=EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT",
 	},
 	{ // Everything false except advertise host ip
 		advertiseHostIPEnvvarValue:  "true",
+		extAdvListenerEnvvarValue:   "my.ext.load.balancer",
 		kerberosEnvvarValue:         "false",
 		tlsEncryptionEnvvarValue:    "false",
 		tlsAllowPlainEnvvarValue:    "false",
-		expectedListeners:           "listeners=PLAINTEXT://127.0.0.1:1000",
-		expectedAdvertisedListeners: "advertised.listeners=PLAINTEXT://127.0.0.1:1000",
+		expectedListeners:           "listeners=PLAINTEXT://127.0.0.1:1000,EXTERNAL://127.0.0.1:9092",
+		expectedAdvertisedListeners: "advertised.listeners=EXTERNAL://my.ext.load.balancer:9092,PLAINTEXT://127.0.0.1:1000",
+		expectedListenerProtocolMap: "listener.security.protocol.map=EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT",
 	},
 	{ // None of the booleans set.
-		expectedListeners:           "listeners=PLAINTEXT://127.0.0.1:1000",
+		expectedListeners:           "listeners=PLAINTEXT://127.0.0.1:1000,EXTERNAL://127.0.0.1:9092",
 		expectedAdvertisedListeners: "",
+		expectedListenerProtocolMap: "listener.security.protocol.map=EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT",
 	},
 	{ // Kerberos enabled, no TLS
 		kerberosEnvvarValue:         "true",
 		tlsEncryptionEnvvarValue:    "false",
 		tlsAllowPlainEnvvarValue:    "false",
-		expectedListeners:           "listeners=SASL_PLAINTEXT://127.0.0.1:1000",
-		expectedAdvertisedListeners: "advertised.listeners=SASL_PLAINTEXT://a-task.a-framework:1000",
+		extAdvListenerEnvvarValue:   "my.ext.load.balancer",
+		expectedListeners:           "listeners=SASL_PLAINTEXT://127.0.0.1:1000,EXTERNAL://127.0.0.1:9092",
+		expectedAdvertisedListeners: "advertised.listeners=EXTERNAL://my.ext.load.balancer:9092,SASL_PLAINTEXT://127.0.0.1:1000",
+		expectedListenerProtocolMap: "listener.security.protocol.map=SASL_PLAINTEXT:SASL_PLAINTEXT,EXTERNAL:SASL_PLAINTEXT",
 	},
 	{ // Kerberos enabled, TLS enabled, No Plaintext
 		kerberosEnvvarValue:         "true",
 		tlsEncryptionEnvvarValue:    "true",
 		tlsAllowPlainEnvvarValue:    "false",
-		expectedListeners:           "listeners=SASL_SSL://127.0.0.1:1001",
-		expectedAdvertisedListeners: "advertised.listeners=SASL_SSL://a-task.a-framework:1001",
+		expectedListeners:           "listeners=SASL_SSL://127.0.0.1:1001,EXTERNAL://127.0.0.1:9092",
+		expectedAdvertisedListeners: "advertised.listeners=SASL_SSL://a-task.a-framework:1001,SASL_SSL://127.0.0.1:1001",
+		expectedListenerProtocolMap: "listener.security.protocol.map=SASL_SSL:SASL_SSL,EXTERNAL:SASL_SSL",
 	},
 	{ // Kerberos enabled, TLS enabled, Plaintext allowed
 		kerberosEnvvarValue:         "true",
 		tlsEncryptionEnvvarValue:    "true",
 		tlsAllowPlainEnvvarValue:    "true",
-		expectedListeners:           "listeners=SASL_SSL://127.0.0.1:1001,SASL_PLAINTEXT://127.0.0.1:1000",
-		expectedAdvertisedListeners: "advertised.listeners=SASL_SSL://a-task.a-framework:1001,SASL_PLAINTEXT://a-task.a-framework:1000",
+		expectedListeners:           "listeners=SASL_SSL://127.0.0.1:1001,EXTERNAL://127.0.0.1:9092,SASL_PLAINTEXT://127.0.0.1:1000,EXTERNAL2://127.0.0.1:9093",
+		expectedAdvertisedListeners: "advertised.listeners=SASL_SSL://a-task.a-framework:1001,SASL_SSL://127.0.0.1:1001,SASL_PLAINTEXT://a-task.a-framework:1000,SASL_PLAINTEXT://127.0.0.1:1000",
+		expectedListenerProtocolMap: "listener.security.protocol.map=SASL_SSL:SASL_SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,EXTERNAL:SASL_SSL,EXTERNAL2:SASL_PLAINTEXT",
 	},
 	{ // Kerberos disabled, TLS enabled, No plaintext
 		kerberosEnvvarValue:         "false",
 		tlsEncryptionEnvvarValue:    "true",
 		tlsAllowPlainEnvvarValue:    "false",
-		expectedListeners:           "listeners=SSL://127.0.0.1:1001",
-		expectedAdvertisedListeners: "advertised.listeners=SSL://a-task.a-framework:1001",
+		expectedListeners:           "listeners=SSL://127.0.0.1:1001,EXTERNAL://127.0.0.1:9092",
+		expectedAdvertisedListeners: "advertised.listeners=SSL://a-task.a-framework:1001,SSL://127.0.0.1:1001",
+		expectedListenerProtocolMap: "listener.security.protocol.map=SSL:SSL,EXTERNAL:SSL",
 	},
 	{ // Kerberos disabled, TLS enabled, Plaintext allowed
 		advertiseHostIPEnvvarValue:  "false",
+		extAdvListenerEnvvarValue:   "my.ext.load.balancer",
 		kerberosEnvvarValue:         "false",
 		tlsEncryptionEnvvarValue:    "true",
 		tlsAllowPlainEnvvarValue:    "true",
-		expectedListeners:           "listeners=SSL://127.0.0.1:1001,PLAINTEXT://127.0.0.1:1000",
-		expectedAdvertisedListeners: "advertised.listeners=SSL://a-task.a-framework:1001,PLAINTEXT://a-task.a-framework:1000",
+		expectedListeners:           "listeners=SSL://127.0.0.1:1001,EXTERNAL://127.0.0.1:9092,PLAINTEXT://127.0.0.1:1000,EXTERNAL2://127.0.0.1:9093",
+		expectedAdvertisedListeners: "advertised.listeners=EXTERNAL://my.ext.load.balancer:9092,SSL://127.0.0.1:1001,EXTERNAL2://my.ext.load.balancer:9093,PLAINTEXT://127.0.0.1:1000",
+		expectedListenerProtocolMap: "listener.security.protocol.map=PLAINTEXT:PLAINTEXT,EXTERNAL2:PLAINTEXT,EXTERNAL:SSL,SSL:SSL",
 	},
 }
 
@@ -117,6 +131,7 @@ func TestSetListeners(t *testing.T) {
 		// Set the envvars
 		os.Clearenv()
 		setEnv(advertiseHostIPEnvvar, test.advertiseHostIPEnvvarValue)
+		setEnv(externalAdvertisedListenerEnvvar, test.extAdvListenerEnvvarValue)
 		setEnv(kerberosEnvvar, test.kerberosEnvvarValue)
 		setEnv(tlsEncryptionEnvvar, test.tlsEncryptionEnvvarValue)
 		setEnv(tlsAllowPlainEnvvar, test.tlsAllowPlainEnvvarValue)
@@ -133,6 +148,12 @@ func TestSetListeners(t *testing.T) {
 		out, err := readWDFile(listenersProperty)
 		asrt.NoError(err)
 		asrt.Equal(test.expectedListeners, string(out))
+
+		/* order of the map elements
+		out, err = readWDFile(listenerProtocolMapProperty)
+		asrt.NoError(err)
+		asrt.Equal(test.expectedListenerProtocolMap, string(out))
+		*/
 
 		out, err = readWDFile(advertisedListenersProperty)
 		asrt.NoError(err)
@@ -162,7 +183,7 @@ func TestGetListener(t *testing.T) {
 	os.Setenv(ipEnvvar, "127.0.0.1")
 	os.Setenv(brokerPort, "1000")
 
-	asrt.Equal("PLAINTEXT://127.0.0.1:1000", getListener("PLAINTEXT", brokerPort))
+	asrt.Equal("PLAINTEXT://127.0.0.1:1000", getListener("PLAINTEXT", brokerPort, true))
 	os.Clearenv()
 }
 
@@ -172,7 +193,7 @@ func TestGetListenerTLS(t *testing.T) {
 	os.Setenv(ipEnvvar, "127.0.0.2")
 	os.Setenv(brokerPortTLS, "1001")
 
-	asrt.Equal("SSL://127.0.0.2:1001", getListener("SSL", brokerPortTLS))
+	asrt.Equal("SSL://127.0.0.2:1001", getListener("SSL", brokerPortTLS, true))
 	os.Clearenv()
 }
 
@@ -222,17 +243,17 @@ var brokerProtocolTests = []struct {
 	{ // Kerberos on, tls off
 		kerberosEnvvarValue: "true",
 		tlsEnvvarValue:      "false",
-		expectedProtocol:    "security.inter.broker.protocol=SASL_PLAINTEXT",
+		expectedProtocol:    "inter.broker.listener.name=SASL_PLAINTEXT",
 	},
 	{ // Kerberos on, tls on
 		kerberosEnvvarValue: "true",
 		tlsEnvvarValue:      "true",
-		expectedProtocol:    "security.inter.broker.protocol=SASL_SSL",
+		expectedProtocol:    "inter.broker.listener.name=SASL_SSL",
 	},
 	{ // Kerberos off, tls on
 		kerberosEnvvarValue: "false",
 		tlsEnvvarValue:      "true",
-		expectedProtocol:    "security.inter.broker.protocol=SSL",
+		expectedProtocol:    "inter.broker.listener.name=SSL",
 	},
 }
 

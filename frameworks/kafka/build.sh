@@ -8,7 +8,7 @@ REPO_ROOT_DIR=$(dirname $(dirname $FRAMEWORK_DIR))
 source $FRAMEWORK_DIR/versions.sh
 
 # Build/test scheduler.zip/CLIs/setup-helper.zip
-${REPO_ROOT_DIR}/gradlew -p ${FRAMEWORK_DIR} check distZip
+${REPO_ROOT_DIR}/gradlew -p ${FRAMEWORK_DIR} check distZip --stacktrace
 $FRAMEWORK_DIR/cli/build.sh
 $FRAMEWORK_DIR/setup-helper/build.sh
 

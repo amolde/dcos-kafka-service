@@ -625,6 +625,11 @@
           "type": "boolean",
           "default": true
         },
+        "external_loadbalancer_dns": {
+          "description": "External load balancer dns - will be used in advertised.listeners",
+          "type": "string",
+          "default": ""
+        },
         "auto_leader_rebalance_enable": {
           "title": "auto.leader.rebalance.enable",
           "description": "Enables auto leader balancing. A background thread checks and triggers leader balance if required at regular intervals",
