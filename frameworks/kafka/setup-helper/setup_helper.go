@@ -248,6 +248,10 @@ func getListener(protocol string, portEnvvar string, isEnvVar bool) string {
 }
 
 func getExternalListenerPort(offset int) string {
+	return strconv.Itoa(29092 + offset)
+}
+
+func getAdvertisedExternalListenerPort(offset int) string {
 	return strconv.Itoa(9092 + offset)
 }
 
@@ -260,7 +264,7 @@ func getExternalListener(externalProtocol string, externalPortOffset int, protoc
 		return fmt.Sprintf("%s://%s:%s",
 			externalProtocol,
 			getStringEnvvar(externalAdvertisedListenerEnvvar),
-			getExternalListenerPort(externalPortOffset + portNumberIncrement))
+			getAdvertisedExternalListenerPort(externalPortOffset + portNumberIncrement))
 	}
 	if (useIp) {
 		return getListener(protocol, portEnvvar, true)
